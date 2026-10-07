@@ -29,6 +29,7 @@
 | [12. PV и PVC](12_pv_pvc.md) | Как предоставить хранилище и сохранить данные при замене Pod? |
 | [13. StatefulSet и headless Service](13_statefulset_headless_service.md) | Как связать постоянное имя реплики с её собственным хранилищем? |
 | [14. Requests, limits и HPA](14_requests_hpa.md) | Как задать ресурсы контейнера и менять количество реплик по нагрузке? |
+| [15. NetworkPolicy и Calico](15_network_policy.md) | Как разрешить нужные соединения между Pod и ограничить остальные? |
 
 ## Общая модель
 
