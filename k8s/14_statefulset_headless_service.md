@@ -29,7 +29,7 @@ StatefulSet database → Pod database-1 → PVC data-database-1 → PV B → д�
 
 ## StatefulSet и headless Service в одном примере
 
-Сохрани два объекта ниже как `database.yaml`. Имя `database` продолжает пример из драфта, но контейнер — учебный NGINX: он отвечает по HTTP, а в `/data` мы можем вручную записать файл и проверить постоянство хранилища.
+Сохрани два объекта ниже как `database.yaml`. Контейнер — учебный NGINX: он отвечает по HTTP, а в `/data` мы можем вручную записать файл и проверить постоянство хранилища.
 
 ```yaml
 apiVersion: v1

@@ -30,7 +30,7 @@
 | [13. PV и PVC](13_pv_pvc.md) | Как предоставить хранилище и сохранить данные при замене Pod? |
 | [14. StatefulSet и headless Service](14_statefulset_headless_service.md) | Как связать постоянное имя реплики с её собственным хранилищем? |
 | [15. Requests, limits и HPA](15_requests_hpa.md) | Как задать ресурсы контейнера и менять количество реплик по нагрузке? |
-| [16. NetworkPolicy и Calico](16_network_policy.md) | Как разрешить нужные соединения между Pod и ограничить остальные? |
+| [16. NetworkPolicy](16_network_policy.md) | Как разрешить нужные соединения между Pod и ограничить остальные? |
 | [17. Размещение Pod](17_affinity_taints_tolerations.md) | Как выбрать подходящие узлы и учесть предпочтения, соседство Pod и taints? |
 | [18. RBAC](18_rbac.md) | Как определить, кто, что и в какой области может делать через Kubernetes API? |
 | [19. SecurityContext](19_secure_context.md) | С какими Linux-правами работает процесс внутри контейнера? |
