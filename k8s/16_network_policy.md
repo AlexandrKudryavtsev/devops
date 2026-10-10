@@ -1,4 +1,4 @@
-# 15. NetworkPolicy и Calico: какой трафик разрешён между Pod
+# 16. NetworkPolicy и Calico: какой трафик разрешён между Pod
 
 ## Какую проблему решаем
 
