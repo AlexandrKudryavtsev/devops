@@ -32,8 +32,6 @@ ServiceAccount backend ← RoleBinding → Role pod-reader
 | `RoleBinding` | Кому выдать разрешения в одном namespace |
 | `ClusterRoleBinding` | Кому выдать разрешения на уровне кластера |
 
-Права определяют `rules` роли. Binding ссылается на роль по имени, поэтому изменение её правил меняет права всех связанных получателей.
-
 ## Role: какие ресурсы и действия разрешены
 
 В примере приложению `backend` нужно получать сведения о Pod в namespace `study`. Роль описывает только чтение этих объектов:
@@ -51,7 +49,7 @@ rules:
     verbs: ["get", "list", "watch"] # Разрешённые действия
 ```
 
-`apiGroups: [""]` обозначает основную, или core, API group: сюда относятся Pod, Service, ConfigMap и Secret. Для Deployment нужна группа `apps`, для Job — `batch`. В правиле группа указывается без версии: `apps`. В `resources` нужно имя ресурса API во множественном числе: `pods`.
+`apiGroups: [""]` обозначает основную, или core, API group: сюда относятся Pod, Service, ConfigMap и Secret. Для Deployment указывают группу `apps`, для Job — `batch` (без упоминания версии). В `resources` нужно имя ресурса API во множественном числе: `pods`.
 
 Все части правила должны совпасть с запросом: группа, ресурс и действие. `metadata.namespace` ограничивает область Role. Основные действия:
 
@@ -66,6 +64,20 @@ rules:
 | `delete` | Удалить объект |
 
 `kubectl get pod NAME` требует `get`, а `kubectl get pods` — `list`. Наблюдение через `-w` использует `watch` и может начинаться с чтения текущего состояния. Одной команде kubectl могут понадобиться несколько действий. Например, `apply` может включать чтение, создание или patch. Проверяй права на API-запросы, которые выполняет команда.
+
+### Подресурсы: отдельное разрешение для журналов
+
+**Подресурс** — отдельная часть API ресурса. Например, `get pods` читает описание Pod, а `get pods/log` — его журналы. Для чтения журналов добавляют отдельное правило:
+
+```yaml
+- apiGroups: [""]
+  resources: ["pods/log"]
+  verbs: ["get"]
+```
+
+### Принцип минимальных прав
+
+**Least privilege — принцип минимальных прав:** выдавай только нужные действия над конкретными ресурсами в нужной области. `*` в resources или verbs распространяет разрешения и на соответствующие ресурсы или действия, которые появятся в будущем.
 
 ## ServiceAccount и RoleBinding: кому выдать права
 
@@ -97,7 +109,9 @@ roleRef:                   # Роль, которую выдаём
 
 **`roleRef.apiGroup` — группа самой роли, `rules[].apiGroups` — группа ресурсов, к которым выдаётся доступ.** В binding можно перечислить несколько субъектов, и каждый получит разрешения указанной роли.
 
-**Namespace RoleBinding определяет область выдаваемых прав, а namespace ServiceAccount в subjects — личность получателя.** Они могут различаться: RoleBinding в `study` способен выдать права там ServiceAccount из другого namespace. Если `roleRef.kind: Role`, эта Role должна находиться в namespace самого binding.
+**RoleBinding может выдать права ServiceAccount из другого namespace.** Например, RoleBinding в `study` может разрешить ServiceAccount из `tools` читать Pod в `study`. Для этого нужно указать namespace получателя в `subjects[].namespace`.
+
+Сама Role должна находиться в том же namespace, что и RoleBinding — в этом примере в `study`.
 
 ## От имени кого обращается приложение в Pod
 
@@ -120,11 +134,9 @@ Pod → serviceAccountName: backend → учётные данные backend
                  ServiceAccount → binding → правила роли
 ```
 
-Kubelet по умолчанию подключает в Pod короткоживущий токен ServiceAccount и обновляет его. Приложение использует токен для API-запросов. `automountServiceAccountToken: false` отключает автоматическое подключение токена. Права ServiceAccount при этом сохраняются.
-
 ## Role, ClusterRole и область binding
 
-Role подходит для ресурсов одного namespace. ClusterRole не имеет namespace и может описывать разрешения для ресурсов, принадлежащих namespace, например Pod, или ресурсов уровня кластера, например Node. **ClusterRole определяет набор правил, а способ привязки определяет, где субъект сможет ими пользоваться.**
+Role создают в конкретном namespace. **ClusterRole создают на уровне кластера, а область выдаваемых прав задают через binding:** RoleBinding выдаёт права в одном namespace, ClusterRoleBinding — во всём кластере.
 
 | Роль и binding | Область выданных разрешений |
 |---|---|
@@ -132,7 +144,7 @@ Role подходит для ресурсов одного namespace. ClusterRol
 | ClusterRole + RoleBinding | Ресурсы только в namespace RoleBinding |
 | ClusterRole + ClusterRoleBinding | Ресурсы во всех namespace и кластерные ресурсы, указанные в правилах |
 
-Например, ClusterRole `pod-reader` с правилами чтения Pod можно использовать повторно: RoleBinding в `study` выдаст чтение только в `study`, а ClusterRoleBinding — во всех namespace. ClusterRoleBinding ссылается только на ClusterRole. Набор действий в обоих случаях определяется правилами роли.
+Например, одну ClusterRole `pod-reader` можно привязать через отдельные RoleBinding в `study` и `tools`, чтобы выдать чтение Pod в этих двух namespace. Через ClusterRoleBinding та же роль выдаст чтение Pod во всех namespace. Сама ClusterRole в обоих случаях остаётся на уровне кластера.
 
 Для чтения Node нужен ClusterRole, потому что Node не принадлежит namespace. В следующем примере ClusterRoleBinding выдаёт ServiceAccount `backend` дополнительные права чтения узлов:
 
@@ -163,21 +175,13 @@ roleRef:
 
 У этих двух объектов нет `metadata.namespace`. Namespace в `subjects` всё ещё нужен для определения ServiceAccount. Если заменить ClusterRoleBinding на RoleBinding в `study`, доступ к Node не появится: кластерный ресурс нельзя поместить в область одного namespace.
 
-## Как складываются права и где проходит граница правила
+## Как складываются права
 
 **RBAC по умолчанию отклоняет запросы. Роли добавляют разрешения, которые складываются.** Учитываются bindings как самой личности, так и её групп. Если одна роль разрешает читать Pod, а другая — удалять их, субъект получает оба разрешения. Чтобы убрать доступ, нужно удалить его из всех применимых ролей и bindings.
 
 Допустим, у ServiceAccount и его групп есть только RoleBinding из примера. Тогда ему доступно только чтение Pod в `study`. Для других действий или namespace понадобятся дополнительные разрешения.
 
-**Подресурс** — отдельная часть API ресурса. Например, `get pods` читает описание Pod, а `get pods/log` — его журналы. Для чтения журналов добавляют отдельное правило:
-
-```yaml
-- apiGroups: [""]
-  resources: ["pods/log"]
-  verbs: ["get"]
-```
-
-**Least privilege — принцип минимальных прав:** выдавай только нужные действия над конкретными ресурсами в нужной области. `*` в resources или verbs распространяет разрешения и на соответствующие ресурсы или действия, которые появятся в будущем.
+## Изменение ролей и bindings
 
 Изменение `rules` роли влияет на все её bindings, а изменение `subjects` binding — на список получателей. `roleRef` существующего binding неизменяем: для ссылки на другую роль нужен новый binding или пересоздание прежнего.
 
@@ -224,9 +228,10 @@ kubectl auth can-i delete pods -n study --as=system:serviceaccount:study:backend
 
 Если ошибка относится к impersonation, сначала проверь право текущего клиента использовать `--as`.
 
-## Особый случай: Secret из API и Secret в контейнере
+## Когда приложению нужны права на чтение Secret
 
-Чтобы читать Secret через API, приложению нужно соответствующее RBAC-разрешение. Когда Secret передан через `env` или volume, данные подготавливает kubelet. Приложение читает уже полученные значения, и отдельное `get secrets` для этого ему не требуется.
+- **Приложение само запрашивает Secret у Kubernetes API — разрешение нужно.** Его ServiceAccount должен получить `get` на `secrets` через роль и binding.
+- **Secret подключён в описании Pod через `env` или volume — разрешение приложению не нужно.** Kubelet передаёт данные в контейнер. Приложение читает переменную окружения или файл, а не обращается к API.
 
 ## Проверь себя
 
@@ -235,7 +240,7 @@ kubectl auth can-i delete pods -n study --as=system:serviceaccount:study:backend
 <details>
 <summary>Показать ответ</summary>
 
-Нет. Role описывает разрешения, а binding связывает их с субъектом. Без такой связи роль не выдаёт backend никаких прав.
+Нет. Чтобы выдать права `backend`, нужен binding на эту роль.
 
 </details>
 
@@ -244,7 +249,7 @@ kubectl auth can-i delete pods -n study --as=system:serviceaccount:study:backend
 <details>
 <summary>Показать ответ</summary>
 
-От имени ServiceAccount default своего namespace, если использует автоматически предоставленные учётные данные. Binding для backend не переключает личность Pod. Нужный ServiceAccount задают в его спецификации.
+От имени ServiceAccount `default` своего namespace.
 
 </details>
 
@@ -253,7 +258,7 @@ kubectl auth can-i delete pods -n study --as=system:serviceaccount:study:backend
 <details>
 <summary>Показать ответ</summary>
 
-Права выдаются в study, а получатель — ServiceAccount из tools. Если roleRef ссылается на Role, она тоже должна находиться в study. Namespace получателя и область разрешений — разные части модели.
+ServiceAccount получает права в `study`. Role тоже находится в `study`, как и RoleBinding.
 
 </details>
 
@@ -262,7 +267,7 @@ kubectl auth can-i delete pods -n study --as=system:serviceaccount:study:backend
 <details>
 <summary>Показать ответ</summary>
 
-RoleBinding выдаёт чтение Pod только в study, ClusterRoleBinding — во всех namespace.
+RoleBinding выдаёт чтение Pod только в `study`, ClusterRoleBinding — во всех namespace.
 
 </details>
 
@@ -271,7 +276,7 @@ RoleBinding выдаёт чтение Pod только в study, ClusterRoleBind
 <details>
 <summary>Показать ответ</summary>
 
-Нет. Node — кластерный ресурс, а RoleBinding выдаёт права в пределах одного namespace. Для выдачи этого разрешения нужен ClusterRoleBinding.
+Нет. Нужен ClusterRoleBinding, потому что Node принадлежит кластеру целиком.
 
 </details>
 
@@ -298,15 +303,15 @@ RoleBinding выдаёт чтение Pod только в study, ClusterRoleBind
 <details>
 <summary>Показать ответ</summary>
 
-Нет. Deployment относится к API group apps, поэтому в apiGroups должно быть apps без версии. Пустая строка обозначает core group. Совпадение только имени ресурса недостаточно.
+Нет. Для Deployment нужно `apiGroups: ["apps"]`.
 
 </details>
 
-**9. Администратор получил yes от kubectl auth can-i list pods. Доказывает ли это доступ приложения backend и успешность его API-запроса?**
+**9. Администратор получил yes от kubectl auth can-i list pods. Значит ли это, что ServiceAccount backend тоже может читать список Pod?**
 
 <details>
 <summary>Показать ответ</summary>
 
-Нет. Без --as проверялась личность текущего клиента. Нужно проверить действие для реальной личности приложения в нужном namespace. Отдельно остаются аутентификация, сетевой путь и другие проверки конкретного запроса.
+Нет. Команда проверила права администратора, а не ServiceAccount `backend`.
 
 </details>
