@@ -17,7 +17,7 @@ Backend здесь — получатель трафика за Service. Даж�
 Клиент → стабильное имя / IP Service → один из готовых backend Pod
 ```
 
-Service не создаёт Pod и не управляет количеством реплик. Deployment и Service — отдельные объекты с разными задачами. Service выбирает Pod по меткам, а не по имени Deployment или ReplicaSet.
+Deployment поддерживает набор Pod. Service выбирает получателей трафика по меткам Pod в своём namespace.
 
 ## ClusterIP и NodePort
 
@@ -28,24 +28,18 @@ Service не создаёт Pod и не управляет количество�
 
 ClusterIP — тип по умолчанию. Для обычного ClusterIP Service имя `web` внутри того же namespace разрешается кластерным DNS в IP Service.
 
-NodePort предоставляет вход через `NODE_IP:nodePort`. Клиент должен иметь сетевой доступ к этому адресу. Наличие NodePort не означает автоматическую доступность из интернета; в Minikube доступ также зависит от драйвера и окружения.
+NodePort предоставляет вход через `NODE_IP:nodePort`. Клиент должен иметь сетевой доступ к этому адресу. Доступ извне зависит от маршрутов и настроек сети. В Minikube на него также влияет драйвер.
 
 ## Порты: три разные роли
 
 ```yaml
 ports:
-  - port: 8080
-    targetPort: 80
-    nodePort: 30080
+  - port: 8080      # Порт Service: web:8080
+    targetPort: 80  # Порт приложения: PodIP:80
+    nodePort: 30080 # Порт на узле: NodeIP:30080
 ```
 
-| Поле | Где клиент или backend использует этот порт |
-|---|---|
-| `port` | Порт Service: например, `web:8080` |
-| `targetPort` | Порт приложения в backend Pod: например, `PodIP:80` |
-| `nodePort` | Дополнительная точка входа на Node: например, `NodeIP:30080` |
-
-Внутренний путь: `web:8080 → PodIP:80`. Путь через NodePort: `NodeIP:30080 → backend PodIP:80` через сетевой механизм Service. Это не обязательная цепочка отдельных TCP-соединений через все три порта.
+Внутренний путь: `web:8080 → PodIP:80`. Путь через NodePort: `NodeIP:30080 → backend PodIP:80` через сетевой механизм Service. В обоих случаях Service направляет соединение на `targetPort` выбранного Pod.
 
 `targetPort` может быть именем, например `http`. Тогда в Pod должен быть объявлен соответствующий именованный порт:
 
@@ -60,6 +54,7 @@ ports:
 ## Минимальный Service
 
 ```yaml
+# web-service.yaml
 apiVersion: v1
 kind: Service
 metadata:
@@ -109,7 +104,7 @@ kubectl run service-client -n study --image=busybox:1.36 \
 <details>
 <summary>Показать ответ</summary>
 
-Service не получит выбранных Pod для обслуживания трафика. Существование Service не гарантирует наличие backend.
+Адрес Service будет существовать, но направлять запросы будет некуда: список backend останется пустым.
 
 </details>
 

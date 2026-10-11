@@ -19,15 +19,16 @@
 
 ## Объекты с данными
 
-Пример ConfigMap и Secret; `---` разделяет два объекта:
+`---` разделяет объекты в одном YAML-файле:
 
 ```yaml
+# app-config.yaml
 apiVersion: v1
 kind: ConfigMap
 metadata:
   name: app-settings
   namespace: study
-data:
+data:                 # Строковые настройки ConfigMap
   LOG_LEVEL: "info"
 ---
 apiVersion: v1
@@ -35,17 +36,13 @@ kind: Secret
 metadata:
   name: app-credentials
   namespace: study
-type: Opaque
-stringData:
+type: Opaque          # Secret с произвольными ключами
+stringData:           # Значения обычным текстом
   username: "appuser"
   password: "practice-pass"
 ```
 
-`data` ConfigMap содержит строки. `Opaque` означает обычный Secret с произвольными ключами. `stringData` позволяет записать значения Secret обычным текстом; пароль в примере учебный.
-
-При чтении Secret через API его значения находятся в `data` в формате base64. **Base64 — способ записи данных, а не шифрование:** значение можно декодировать обратно. Для защиты Secret нужны права доступа и настройки хранения. См. [документацию Secret](https://kubernetes.io/docs/concepts/configuration/secret/).
-
-Все примеры используют namespace `study` из предыдущих записей.
+При чтении Secret через API его значения находятся в `data` в формате base64. **Base64 — способ записи данных, а не шифрование:** значение можно декодировать обратно. Для защиты Secret нужны права доступа и настройки хранения.
 
 ## Передача данных контейнеру
 
@@ -56,11 +53,10 @@ ConfigMap app-settings → переменная LOG_LEVEL внутри конт�
 Secret app-credentials → файлы username и password внутри контейнера
 ```
 
-Оба объекта поддерживают оба способа. Здесь выбрано такое сочетание для обучения.
-
-Пример Deployment с обоими способами передачи:
+ConfigMap и Secret поддерживают оба способа передачи.
 
 ```yaml
+# config-demo.yaml
 apiVersion: apps/v1
 kind: Deployment
 metadata:
@@ -80,41 +76,24 @@ spec:
         - name: app
           image: busybox:1.36
           command: ["sh", "-c", "sleep 3600"]
-          envFrom:
+          envFrom:             # Все ключи ConfigMap станут переменными окружения
             - configMapRef:
                 name: app-settings
           volumeMounts:
-            - name: credentials
-              mountPath: /etc/app-credentials
-              readOnly: true
-      volumes:
-        - name: credentials
+            - name: credentials # Имя тома из volumes
+              mountPath: /etc/app-credentials # Папка с файлами
+              readOnly: true    # Запретить запись через это подключение
+      volumes:                 # Объявление томов на уровне Pod
+        - name: credentials    # Произвольное имя тома
           secret:
-            secretName: app-credentials
+            secretName: app-credentials # Secret, из которого берём данные
 ```
 
-BusyBox — учебный контейнер, в котором можно выполнить команды и проверить данные. `sleep 3600` оставляет его работающим на час. Подключение к базе здесь не выполняется: мы проверяем передачу настроек.
+BusyBox позволяет проверить настройки командами. `sleep 3600` оставляет контейнер работающим на час.
 
-### Откуда берётся переменная
+### Как подключаются файлы
 
-`envFrom` берёт все ключи указанного ConfigMap и делает их переменными окружения контейнера. Поэтому внутри него будет `LOG_LEVEL=info`.
-
-### Откуда берутся файлы
-
-**Volume (том) объявляется в Pod, а контейнер подключает его в свою файловую систему.** В этом примере файлы создаются из ключей Secret; основы томов и пример временного `emptyDir` разобраны отдельно в [записи 12](12_volumes.md).
-
-Конфигурация состоит из двух частей:
-
-- `volumes` в спецификации Pod объявляет volume и указывает, откуда взять данные;
-- `volumeMounts` в описании конкретного контейнера указывает, какой volume подключить и в какую папку.
-
-| Поле | Что означает |
-|---|---|
-| `volumes[].name: credentials` | Имя volume. Слово `credentials` выбрано нами и может быть другим |
-| `secretName: app-credentials` | Имя существующего Secret, из которого берём данные |
-| `volumeMounts[].name: credentials` | Какой volume подключить. Должно совпадать с именем в `volumes` |
-| `mountPath: /etc/app-credentials` | Папка, где контейнер увидит файлы |
-| `readOnly: true` | Подключить только для чтения |
+**Volume (том) объявляется в Pod, а контейнер подключает его в свою файловую систему.** В этом примере файлы создаются из ключей Secret. Основы томов и пример временного `emptyDir` разобраны отдельно в [записи 12](12_volumes.md).
 
 По умолчанию **все ключи Secret становятся файлами с такими же именами**:
 
@@ -123,7 +102,7 @@ BusyBox — учебный контейнер, в котором можно вы
 /etc/app-credentials/password  содержит practice-pass
 ```
 
-Приложение должно уметь читать эти файлы. Kubernetes не подставляет пароль в код приложения автоматически.
+Приложение получает пароль, читая соответствующий файл.
 
 ### Проверить результат
 
@@ -150,20 +129,20 @@ volumes:
     secret:
       secretName: app-credentials
       items:
-        - key: username
-          path: login
+        - key: username # Ключ в Secret
+          path: login   # Имя файла внутри тома
         - key: password
           path: password
 ```
 
-`key` — какой ключ взять из Secret. `path` — как назвать файл внутри volume. При прежнем `mountPath` получатся:
+При прежнем `mountPath` получатся:
 
 ```text
 /etc/app-credentials/login     содержит appuser
 /etc/app-credentials/password  содержит practice-pass
 ```
 
-**Когда задан `items`, в volume попадут только перечисленные ключи.** Здесь указаны оба, потому что приложению нужны и логин, и пароль. Если убрать запись для `password`, приложение не получит пароль через этот volume.
+**Когда задан `items`, в volume попадут только перечисленные ключи.** Поэтому для логина и пароля указываем оба.
 
 ## Если нужно добавить файлы в существующую папку: `subPath`
 
@@ -196,11 +175,9 @@ volumeMounts:
 └── password       ← файл из volume
 ```
 
-`subPath` указывает **что взять внутри volume**, а `mountPath` — **где это будет видно в контейнере**. Для отдельного файла `mountPath` задаёт полный путь к файлу, а не только папку.
-
 ## Что будет, если изменить настройки
 
-Изменение ConfigMap или Secret само по себе не запускает обновление Deployment. Результат зависит от того, как переданы данные:
+После изменения ConfigMap или Secret результат зависит от способа передачи данных:
 
 | Способ | Что произойдёт |
 |---|---|
@@ -216,8 +193,6 @@ kubectl rollout status deployment/config-demo -n study --timeout=60s
 ```
 
 Если контейнер не запускается, проверь существование ConfigMap и Secret, их имена, namespace и нужные ключи. Причину ищи через `kubectl describe pod POD -n study`, где `POD` — имя проблемного Pod.
-
-Особенности обновления описаны в документации [ConfigMap](https://kubernetes.io/docs/concepts/configuration/configmap/) и [Secret](https://kubernetes.io/docs/concepts/configuration/secret/#using-secrets-as-files-from-a-pod).
 
 ## Проверь себя
 
