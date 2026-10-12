@@ -51,6 +51,9 @@ Events описывают события Kubernetes и хранятся огра
 kubectl get pods -n study -l app=web -o wide
 kubectl describe pod POD -n study
 
+# Объект из API целиком в формате YAML
+kubectl get pod POD -n study -o yaml
+
 # События конкретного Pod
 kubectl get events -n study \
   --field-selector involvedObject.kind=Pod,involvedObject.name=POD \
@@ -63,6 +66,8 @@ kubectl logs POD -n study --previous
 # Команда внутри работающего контейнера
 kubectl exec POD -n study -- nginx -t
 ```
+
+**`-o` (`--output`) выбирает формат вывода.** `-o wide` добавляет к таблице сведения, например IP Pod и его Node. `-o yaml` показывает объект из API в формате YAML: `metadata`, `spec` и `status`. Так можно проверить, какие настройки принял кластер и какое состояние он сообщает.
 
 `--previous` полезен, когда предыдущий экземпляр контейнера уже завершился. Если контейнеров несколько, явно укажи нужный через `-c CONTAINER` для `logs` и `exec`.
 
