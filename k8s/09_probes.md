@@ -61,7 +61,7 @@ startupProbe, если настроена
     failureThreshold: 3
 ```
 
-Kubelet отправляет HTTP-запрос напрямую на IP Pod. Путь через Service и Ingress проверяют отдельно. Успешными считаются ответы с кодом 200–399.
+Kubelet отправляет HTTP-запрос напрямую на IP Pod. Путь через Service и Gateway проверяют отдельно. Успешными считаются ответы с кодом 200–399.
 
 В примере опущены `timeoutSeconds` — срок ожидания одной проверки, по умолчанию 1 секунда, и `initialDelaySeconds` — задержка перед началом проверок, по умолчанию 0.
 
@@ -108,7 +108,7 @@ kubectl get endpointslices -n study -l kubernetes.io/service-name=web -o yaml
 |---|---|
 | `Running`, `READY 0/1`, перезапуски не растут | Startup/readiness, Conditions и Events |
 | Растёт `RESTARTS` | Startup/liveness в Events, падение процесса в logs |
-| Pod Ready, но внешний запрос не проходит | Service, Ingress и сетевой путь |
+| Pod Ready, но внешний запрос не проходит | Service, Gateway, HTTPRoute и сетевой путь |
 
 Перезапуск может вызвать и само приложение: например, если процесс завершился или превысил лимит памяти (OOM). Причину уточняй в Events и состоянии контейнера.
 
@@ -183,12 +183,12 @@ Pod становится не Ready и не получает обычный тр
 
 </details>
 
-**5. HTTP probe успешна, но через Ingress приложение недоступно. Противоречие ли это?**
+**5. HTTP probe успешна, но через Gateway приложение недоступно. Противоречие ли это?**
 
 <details>
 <summary>Показать ответ</summary>
 
-Нет. Kubelet проверяет приложение по IP Pod. Это не проверяет правила Ingress, backend Service и доступность прокси снаружи.
+Нет. Kubelet проверяет приложение по IP Pod. Путь через Gateway и Service проверяют отдельно.
 
 </details>
 

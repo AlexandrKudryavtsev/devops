@@ -70,10 +70,6 @@ kubectl scale deployment/web -n study --replicas=4
 kubectl rollout status deployment/web -n study --timeout=60s
 kubectl get deployment web -n study
 kubectl get pods -n study -l app=web -o wide
-
-# Посмотреть backend и события
-kubectl get endpointslices -n study -l kubernetes.io/service-name=web -o yaml
-kubectl describe deployment web -n study
 ```
 
 `--replicas=4` задаёт требуемое число Pod. Фактическое число готовых экземпляров проверяй через `get` и `rollout status`: запуск может задержаться из-за нехватки ресурсов или ошибки контейнера.
