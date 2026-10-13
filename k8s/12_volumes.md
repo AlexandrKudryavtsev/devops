@@ -39,7 +39,7 @@ Secret и ConfigMap уже встречались в [записи 8](08_configm
 
 ## emptyDir: пустой при создании, общий внутри Pod
 
-Правильное имя поля в YAML — **`emptyDir`**, с заглавной `D`, без дефиса. `emptyDir: {}` создаёт первоначально пустой том при назначении Pod на узел. PV, PVC и StorageClass для него не нужны.
+`emptyDir: {}` создаёт первоначально пустой том при назначении Pod на узел. PV, PVC и StorageClass для него не нужны.
 
 | Событие | Что будет с файлом в emptyDir |
 |---|---|
@@ -51,8 +51,6 @@ Secret и ConfigMap уже встречались в [записи 8](08_configm
 По умолчанию том использует локальное хранилище узла. Он подходит для временных данных: при замене Pod создаётся новый пустой том.
 
 ## Пример: два контейнера подключают один том
-
-В namespace `study` создадим Pod с двумя контейнерами BusyBox:
 
 ```yaml
 # emptydir-demo.yaml
@@ -72,18 +70,18 @@ spec:
         - |
           while [ ! -f /tmp/restart-request ]; do sleep 1; done
       volumeMounts:
-        - name: shared    # Подключить объявленный ниже том
+        - name: shared     # Подключить объявленный ниже том
           mountPath: /out  # Путь в контейнере writer
     - name: reader
       image: busybox:1.36
       command: ["sh", "-c", "while true; do sleep 3600; done"]
       volumeMounts:
-        - name: shared    # Тот же том
+        - name: shared     # Тот же том
           mountPath: /in   # Путь в контейнере reader
           readOnly: true   # Запретить запись через это подключение
-  volumes:                # Тома этого Pod
-    - name: shared        # Имя для ссылок из volumeMounts
-      emptyDir: {}        # Первоначально пустой временный том
+  volumes:                 # Тома этого Pod
+    - name: shared         # Имя для ссылок из volumeMounts
+      emptyDir: {}         # Первоначально пустой временный том
 ```
 
 Здесь **один том и два подключения**. `writer` записывает файлы через `/out`, `reader` читает их через `/in`.
@@ -91,8 +89,6 @@ spec:
 Для проверки перезапуска создадим `/tmp/restart-request`: при его появлении цикл `writer` завершится. Файл находится вне тома и исчезнет при перезапуске контейнера. Данные в том записываем отдельной командой.
 
 ### 1. Проверить обмен файлами
-
-Если namespace ещё не создан, сначала выполни `kubectl create namespace study`.
 
 ```bash
 kubectl apply -f emptydir-demo.yaml
