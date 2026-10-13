@@ -1,0 +1,36 @@
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: report-job
+  namespace: study
+spec:
+  completions: 1
+  parallelism: 1
+  backoffLimit: 2
+  template:
+    spec:
+      restartPolicy: Never
+      containers:
+        - name: report
+          image: busybox:1.36
+          command: ["sh", "-c", "echo 'Report completed'"]
+---
+apiVersion: batch/v1
+kind: CronJob
+metadata:
+  name: report-cron-job
+  namespace: study
+spec:
+  schedule: "* * * * *"
+  timeZone: Europe/Moscow
+  concurrencyPolicy: Forbid
+  jobTemplate:
+    spec:
+      backoffLimit: 2
+      template:
+        spec:
+          restartPolicy: Never
+          containers:
+            - name: report
+              image: busybox:1.36
+              command: ["sh", "-c", "echo \"$(date +%Y.%m.%d-%H.%M.%S)\""]

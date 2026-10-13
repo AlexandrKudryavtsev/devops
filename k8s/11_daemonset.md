@@ -110,6 +110,12 @@ BusyBox заменяет долгоживущего агента, чтобы п�
 ```bash
 # Узлы и метка, по которой их выбирают
 kubectl get nodes -L monitoring
+# Добавить новую node для minikube
+minikube node add
+# Добавить метку на node
+kubectl label node NODE monitoring=enabled
+# Изменить метку на node
+kubectl label node NODE --overwrite monitoring=disabled
 
 # Требуемый набор и размещение фактических Pod
 kubectl get daemonset node-agent -n study

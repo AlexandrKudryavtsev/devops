@@ -1,0 +1,91 @@
+apiVersion: apps/v1
+kind: DaemonSet
+metadata:
+  name: monitoring-agents
+  namespace: study
+spec:
+  selector:
+    matchLabels:
+      app: monitoring-agents
+  template:
+    metadata:
+      labels:
+        app: monitoring-agents
+    spec:
+      nodeSelector:
+        monitoring: enabled
+      containers:
+        - name: agent
+          image: busybox:1.36
+          command: 
+            - "sh"
+            - "-c"
+            - |
+              while true; do
+                echo "node=$NODE_NAME timestamp=$(date -u +%Y-%m-%dT%H:%M:%SZ) uptime=$(cat /proc/uptime) load_average=$(cat /proc/loadavg)" >> /data/metrics.log
+                sleep 10
+              done
+          env:
+            - name: NODE_NAME
+              valueFrom:
+                fieldRef:
+                  fieldPath: spec.nodeName
+          volumeMounts:
+            - name: logs-volume
+              mountPath: /data
+              readOnly: false
+      volumes:
+        - name: logs-volume
+          hostPath:
+            path: /tmp/node-monitor
+            type: DirectoryOrCreate
+---
+apiVersion: batch/v1
+kind: CronJob
+metadata:
+  name: report-cron
+  namespace: study
+spec:
+  schedule: "* * * * *"
+  timeZone: Europe/Moscow
+  concurrencyPolicy: Forbid
+  jobTemplate:
+    spec:
+      backoffLimit: 2
+      template:
+        spec: 
+          restartPolicy: Never
+          nodeSelector:
+            monitoring: enabled
+          containers:
+            - name: report
+              image: busybox:1.36
+              command:
+                - sh
+                - -c
+                - | 
+                  if [ ! -f /data/metrics.log ]; then
+                    echo "ERROR: METRICS FILE NOT FOUND"
+                    exit 1
+                  fi
+                  
+                  current_time=$(date +%s)
+                  last_log_time=$(stat -c %Y /data/metrics.log)
+
+                  echo "REPORT:"
+                  echo "Time: $(date -u +%Y-%m-%dT%H:%M:%SZ)"
+                  echo "All logs: $(wc -l < /data/metrics.log)"
+                  echo "Last log: $(tail -1 /data/metrics.log)"
+
+                  if [ $((current_time - last_log_time)) -gt 30 ]; then
+                    echo "WARNING: STALE METRICS"
+                  fi
+              volumeMounts:
+                - name: logs-volume
+                  mountPath: /data
+                  readOnly: true
+          volumes:
+            - name: logs-volume
+              hostPath:
+                path: /tmp/node-monitor
+                type: Directory
