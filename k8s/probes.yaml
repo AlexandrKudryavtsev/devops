@@ -24,7 +24,7 @@ spec:
             httpGet:
               path: /
               port: http
-            periodSeconds: 2
+            x: 2
             failureThreshold: 10
           readinessProbe:
             httpGet:

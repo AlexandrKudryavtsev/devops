@@ -1,0 +1,130 @@
+apiVersion: v1
+kind: Secret
+metadata:
+  name: db-secret
+  namespace: app
+type: Opaque
+stringData:
+  POSTGRES_USER: user
+  POSTGRES_PASSWORD: password
+  POSTGRES_DB: notesdb
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: db-service
+  namespace: app
+spec:
+  clusterIP: None
+  ports:
+    - name: postgres
+      port: 5432
+      targetPort: db-port
+  selector:
+    app: db
+---
+apiVersion: apps/v1
+kind: StatefulSet
+metadata:
+  name: db-statefulset
+  namespace: app
+spec:
+  serviceName: db-service
+  replicas: 1
+  selector:
+    matchLabels:
+      app: db
+  template:
+    metadata:
+      labels:
+        app: db
+    spec:
+      containers:
+        - name: postgres
+          image: postgres:17-alpine
+          ports:
+            - name: db-port
+              containerPort: 5432
+          envFrom:
+            - secretRef:
+                name: db-secret
+          volumeMounts:
+            - name: db
+              mountPath: /var/lib/postgresql/data
+  volumeClaimTemplates:
+    - metadata:
+        name: db
+      spec:
+        accessModes:
+          - ReadWriteOnce
+        resources:
+          requests:
+            storage: 512Mi
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: web
+  namespace: app
+spec:
+  replicas: 2
+  selector:
+    matchLabels:
+      app: web
+  template:
+    metadata:
+      labels:
+        app: web
+    spec:
+      containers:
+        - name: notes
+          image: notes-api:v1
+          imagePullPolicy: IfNotPresent
+          ports:
+            - name: http
+              containerPort: 8080
+
+          env:
+            - name: POSTGRES_USER
+              valueFrom:
+                secretKeyRef:
+                  name: db-secret
+                  key: POSTGRES_USER
+
+            - name: POSTGRES_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: db-secret
+                  key: POSTGRES_PASSWORD
+
+            - name: DATABASE_URL
+              value: "postgres://$(POSTGRES_USER):$(POSTGRES_PASSWORD)@db-service:5432/notesdb?sslmode=disable"
+
+          readinessProbe:
+            httpGet:
+              path: /ready
+              port: http
+            initialDelaySeconds: 3
+            periodSeconds: 5
+
+          livenessProbe:
+            httpGet:
+              path: /health
+              port: http
+            initialDelaySeconds: 3
+            periodSeconds: 5
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: web-service
+  namespace: app
+spec:
+  type: NodePort
+  ports:
+    - name: http
+      port: 8081
+      targetPort: http
+      nodePort: 30001
+  selector:
+    app: web
