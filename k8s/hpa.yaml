@@ -1,0 +1,60 @@
+# hpa minikube
+apiVersion: v1
+kind: Service
+metadata:
+  name: app-service
+  namespace: study
+spec:
+  type: ClusterIP
+  selector:
+    app: web
+  ports:
+    - name: http
+      port: 80
+      targetPort: http
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: app
+  namespace: study
+spec:
+  selector:
+    matchLabels:
+      app: web
+  template:
+    metadata:
+      labels:
+        app: web
+    spec:
+      containers:
+        - name: apache
+          image: registry.k8s.io/hpa-example
+          ports:
+            - name: http
+              containerPort: 80
+          resources:
+            requests:
+              cpu: 200m
+            limits:
+              cpu: 500m
+---
+apiVersion: autoscaling/v2
+kind: HorizontalPodAutoscaler
+metadata:
+  name: app-hpa
+  namespace: study
+spec:
+  scaleTargetRef:
+    apiVersion: apps/v1
+    kind: Deployment
+    name: app
+  minReplicas: 1
+  maxReplicas: 5
+  metrics:
+    - type: Resource
+      resource:
+        name: cpu
+        target:
+          type: Utilization
+          averageUtilization: 50
