@@ -7,8 +7,10 @@ resources:
   - manifests/node-exporter/daemonset.yaml
   - manifests/prometheus/rbac.yaml
   - manifests/prometheus/deployment.yaml
+  - manifests/prometheus/pvc.yaml
   - manifests/grafana/deployment.yaml
   - manifests/alertmanager/deployment.yaml
+  - manifests/grafana/pvc.yaml
 
 configMapGenerator:
   - name: prometheus-config

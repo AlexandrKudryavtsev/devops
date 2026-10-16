@@ -5,6 +5,8 @@ metadata:
   namespace: monitoring
 spec:
   replicas: 1
+  strategy:
+    type: Recreate
   selector:
     matchLabels:
       app: grafana
@@ -27,10 +29,18 @@ spec:
             - name: grafana-config
               mountPath: /etc/grafana/provisioning/datasources
               readOnly: true
+            - name: grafana-data
+              mountPath: /var/lib/grafana
+              readOnly: false
+      securityContext:
+        fsGroup: 472
       volumes:
         - name: grafana-config
           configMap:
             name: grafana-datasources
+        - name: grafana-data
+          persistentVolumeClaim:
+            claimName: grafana-pvc
 ---
 apiVersion: v1
 kind: Service
