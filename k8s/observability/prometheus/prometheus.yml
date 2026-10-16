@@ -18,3 +18,12 @@ scrape_configs:
           - __meta_kubernetes_pod_node_name
         action: replace
         target_label: node
+
+alerting:
+  alertmanagers:
+    - static_configs:
+        - targets:
+            - alertmanager-service:9093
+
+rule_files:
+  - /etc/prometheus/rules/alerts.yml
