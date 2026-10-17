@@ -11,6 +11,8 @@ resources:
   - manifests/grafana/deployment.yaml
   - manifests/alertmanager/deployment.yaml
   - manifests/grafana/pvc.yaml
+  - manifests/loki/pvc.yaml
+  - manifests/loki/deployment.yaml
 
 configMapGenerator:
   - name: prometheus-config
@@ -31,3 +33,6 @@ configMapGenerator:
   - name: alertmanager-configmap
     files:
       - configs/alertmanager/alertmanager.yml
+  - name: loki-configmap
+    files:
+      - configs/loki/loki.yml
