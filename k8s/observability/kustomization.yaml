@@ -22,6 +22,12 @@ configMapGenerator:
   - name: grafana-datasources
     files:
       - configs/grafana/datasources.yml
+  - name: grafana-provider
+    files:
+      - configs/grafana/dashboard-provider.yml
+  - name: grafana-dashboards
+    files:
+      - configs/grafana/dashboards/minikube-overview.json
   - name: alertmanager-configmap
     files:
       - configs/alertmanager/alertmanager.yml

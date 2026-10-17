@@ -1,0 +1,10 @@
+apiVersion: 1
+
+providers:
+  - name: 'Git provider'
+    folder: Infrastructure
+    updateIntervalSeconds: 30
+    allowUiUpdates: false
+    type: file
+    options: 
+      path: /etc/grafana/dashboards
