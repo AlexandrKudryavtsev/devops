@@ -13,6 +13,8 @@ resources:
   - manifests/grafana/pvc.yaml
   - manifests/loki/pvc.yaml
   - manifests/loki/deployment.yaml
+  - manifests/alloy/rbac.yaml
+  - manifests/alloy/daemonset.yaml
 
 configMapGenerator:
   - name: prometheus-config
@@ -36,3 +38,6 @@ configMapGenerator:
   - name: loki-configmap
     files:
       - configs/loki/loki.yml
+  - name: alloy-configmap
+    files:
+      - configs/alloy/config.alloy
