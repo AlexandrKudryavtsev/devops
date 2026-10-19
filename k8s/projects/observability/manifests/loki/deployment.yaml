@@ -1,0 +1,57 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: loki-deployment
+  namespace: monitoring
+spec:
+  replicas: 1
+  strategy:
+    type: Recreate
+  selector:
+    matchLabels:
+      app: loki
+  template:
+    metadata:
+      labels:
+        app: loki
+    spec:
+      containers:
+        - name: loki
+          image: grafana/loki:3.7.8
+          ports:
+            - name: http
+              containerPort: 3100
+          volumeMounts: 
+            - name: loki-data
+              mountPath: /loki
+            - name: loki-config
+              mountPath: /etc/loki
+          args:
+            - -config.file=/etc/loki/loki.yml
+          readinessProbe:
+            httpGet:
+              port: http
+              path: /ready
+      volumes:
+        - name: loki-data
+          persistentVolumeClaim:
+            claimName: loki-pvc
+        - name: loki-config
+          configMap:
+            name: loki-configmap
+      securityContext:
+        fsGroup: 10001
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: loki-service
+  namespace: monitoring
+spec:
+  type: ClusterIP
+  selector:
+    app: loki
+  ports:
+    - name: http
+      port: 3100
+      targetPort: http
