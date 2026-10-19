@@ -1,0 +1,23 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: {{ .Release.Name }}
+  namespace: {{ .Release.Namespace }}
+spec:
+  replicas: {{ .Values.replicaCount }}
+  selector:
+    matchLabels:
+      app: web
+  template:
+    metadata:
+      labels: 
+        app: web
+    spec:
+      containers:
+        {{- with .Values.image }}
+        - name: web
+          image: {{ .repository }}:{{ .tag }}
+          ports:
+            - name: http
+              containerPort: 80
+        {{ end }}
